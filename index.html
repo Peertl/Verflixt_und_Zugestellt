@@ -1410,14 +1410,15 @@
                     let nextY = c.y + c.dirY * c.speed;
                     let isBlocked = false; 
                     let blockedByPlayer = false;
+                    let blockedByAI = null;
 
                     for(let other of competitors) {
                         if(other.id === c.id) continue;
-                        if(Math.hypot(c.x - other.x, c.y - other.y) < 180) { // Abstand vergrößert
+                        if(Math.hypot(c.x - other.x, c.y - other.y) < 180) { 
                             let angleToOther = Math.atan2(other.y - c.y, other.x - c.x); 
                             let diffAngle = Math.abs(c.angle - angleToOther); 
                             if (diffAngle > Math.PI) diffAngle = 2*Math.PI - diffAngle;
-                            if (diffAngle < Math.PI/3) { isBlocked = true; break; } // Sichtkegel verbreitert
+                            if (diffAngle < Math.PI/3) { isBlocked = true; blockedByAI = other; break; } 
                         }
                     }
 
@@ -1426,19 +1427,59 @@
                     }
                     
                     let cCol = checkCollision(nextX, nextY); 
-                    if (cCol.hit && cCol.type === 'solid') { isBlocked = true; }
+                    let blockedBySolid = (cCol.hit && cCol.type === 'solid');
+                    if (blockedBySolid) { isBlocked = true; }
+
+                    // --- NEU: UMFAHREN (AUSWEICHEN) ---
+                    if (isBlocked && blockedByAI && !blockedByPlayer && !blockedBySolid) {
+                        let sideStep = 3; 
+                        let shiftX = 0, shiftY = 0;
+                        
+                        // Liegt das Hindernis links oder rechts?
+                        let cross = c.dirX * (blockedByAI.y - c.y) - c.dirY * (blockedByAI.x - c.x);
+                        if (c.dirX !== 0) {
+                            shiftY = (cross > 0) ? -sideStep : sideStep; 
+                            if (cross === 0) shiftY = (Math.random() > 0.5) ? sideStep : -sideStep;
+                        } else {
+                            shiftX = (cross < 0) ? -sideStep : sideStep; 
+                            if (cross === 0) shiftX = (Math.random() > 0.5) ? sideStep : -sideStep;
+                        }
+
+                        // Prüfen, ob die Spur daneben frei von Wänden ist
+                        let testX = c.x + shiftX;
+                        let testY = c.y + shiftY;
+                        let swerveCol = checkCollision(testX, testY);
+                        
+                        if (!swerveCol.hit || swerveCol.type !== 'solid') {
+                            isBlocked = false; // Spur ist frei, wir weichen aus!
+                            nextX = testX + c.dirX * c.speed * 0.7; // Leicht abbremsen beim Überholen
+                            nextY = testY + c.dirY * c.speed * 0.7;
+                            
+                            let targetAngle = Math.atan2(c.dirY * c.speed + shiftY, c.dirX * c.speed + shiftX);
+                            let aDiff = targetAngle - c.angle;
+                            while (aDiff > Math.PI) aDiff -= 2*Math.PI;
+                            while (aDiff < -Math.PI) aDiff += 2*Math.PI;
+                            c.angle += aDiff * 0.15;
+                        }
+                    }
 
                     if (isBlocked) {
                         if (blockedByPlayer) { 
                             c.state = ' Prepare_Attack'; c.timer = 5; c.speed = 0; 
                         } else { 
-                            c.state = 'traffic_jam'; c.timer = 120; c.speed = 0; 
+                            c.state = 'traffic_jam'; c.timer = 80; c.speed = 0; // Kurzes Warten, falls doch eingeklemmt
                         }
                     } else {
                         c.x = nextX; c.y = nextY;
                         
-                        if(Math.abs(c.x) > 2080) { c.x = Math.sign(c.x)*2080; c.dirX *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
-                        if(Math.abs(c.y) > 2080) { c.y = Math.sign(c.y)*2080; c.dirY *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
+                        // Winkel wieder normalisieren, falls ausgewichen wurde
+                        let aDiff = c.baseAngle - c.angle;
+                        while (aDiff > Math.PI) aDiff -= 2*Math.PI;
+                        while (aDiff < -Math.PI) aDiff += 2*Math.PI;
+                        c.angle += aDiff * 0.05;
+                        
+                        if(Math.abs(c.x) > 2080) { c.x = Math.sign(c.x)*2080; c.dirX *= -1; c.angle = c.baseAngle + Math.PI; c.baseAngle = c.angle; }
+                        if(Math.abs(c.y) > 2080) { c.y = Math.sign(c.y)*2080; c.dirY *= -1; c.angle = c.baseAngle + Math.PI; c.baseAngle = c.angle; }
                         
                         if(Math.random() < 0.0005) { 
                             let drift = 15 + Math.random()*20; 
@@ -1469,6 +1510,7 @@
                         if (Math.hypot(c.x - car.x, c.y - car.y) > 800) {
                             competitors[i] = spawnSingleAI(); 
                         } else {
+                            // Einfach wenden und weiterfahren (Kein Feierabend-Despawn)
                             c.dirX *= -1; c.dirY *= -1; 
                             c.angle += Math.PI; c.baseAngle = c.angle; 
                             c.state = 'driving'; c.speed = c.baseSpeed;
