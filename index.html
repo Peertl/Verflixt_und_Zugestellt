@@ -1526,7 +1526,7 @@
                             let angle = Math.atan2(pTargetY - attacker.y, pTargetX - attacker.x); 
                             projectiles.push({ x: attacker.x, y: attacker.y, z: 10, vx: Math.cos(angle)*4, vy: Math.sin(angle)*4, vz: 2, life: 40 }); 
                         } 
-                        attacker.state = 'after_throw'; attacker.pose = 'after_throw'; attacker.timer = 50; 
+                        attacker.state = 'after_throw'; attacker.pose = 'after_throw'; attacker.timer = 100; 
                     } 
                 } else if(attacker.state === 'after_throw') { 
                     attacker.lastAngle = Math.atan2(pTargetY - attacker.y, pTargetX - attacker.x); 
