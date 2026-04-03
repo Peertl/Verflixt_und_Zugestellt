@@ -892,7 +892,7 @@
             let minD = 0, maxD = 9999;
             if(car.type === 'bike') { minD = 450; maxD = 1200; } 
             else if(car.type === 'scooter') { minD = 600; maxD = 1500; } 
-            else if(car.type === 'transporter') { minD = 1200; maxD = 3000; }
+            else if(car.type === 'transporter') { minD = 900; maxD = 2000; }
             
             let availableBuildings = mapData.buildings.filter(b => { 
                 let d = Math.hypot(b.haloX - car.x, b.haloY - car.y); 
@@ -1508,7 +1508,7 @@
                             let angle = Math.atan2(pTargetY - attacker.y, pTargetX - attacker.x); 
                             projectiles.push({ x: attacker.x, y: attacker.y, z: 10, vx: Math.cos(angle)*4, vy: Math.sin(angle)*4, vz: 2, life: 40 }); 
                         } 
-                        attacker.state = 'after_throw'; attacker.pose = 'after_throw'; attacker.timer = 150; 
+                        attacker.state = 'after_throw'; attacker.pose = 'after_throw'; attacker.timer = 100; 
                     } 
                 } else if(attacker.state === 'after_throw') { 
                     attacker.lastAngle = Math.atan2(pTargetY - attacker.y, pTargetX - attacker.x); 
