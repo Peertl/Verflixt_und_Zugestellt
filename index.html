@@ -616,10 +616,11 @@
             let onXAxis = Math.random() < 0.5; 
             let line = gridSteps[Math.floor(Math.random() * gridSteps.length)];
             let validSpawn = false; 
-            let aiX, aiY; 
-            let dir, dirX, dirY;
+            let aiX = 0, aiY = 0; 
+            let dir, dirX = 0, dirY = 0;
+            let attempts = 0;
             
-            while(!validSpawn) {
+            while(!validSpawn && attempts < 100) {
                 let startPos = (Math.random() * 4000) - 2000; 
                 dir = Math.random() > 0.5 ? 1 : -1;
                 
@@ -631,9 +632,23 @@
                     dirX = 0; dirY = dir; 
                 }
                 
-                if (Math.hypot(aiX - car.x, aiY - car.y) > 1500) {
-                    validSpawn = true;
+                validSpawn = true;
+                
+                // Zu nah am Spieler?
+                if (Math.hypot(aiX - car.x, aiY - car.y) < 800) {
+                    validSpawn = false;
                 }
+                
+                // Zu nah an anderen KI-Autos? (Verhindert exaktes Ineinander-Spawnen)
+                if (validSpawn) {
+                    for (let c of competitors) {
+                        if (c && Math.hypot(aiX - c.x, aiY - c.y) < 300) {
+                            validSpawn = false;
+                            break;
+                        }
+                    }
+                }
+                attempts++;
             }
             
             let brand = brandList[Math.floor(Math.random() * brandList.length)];
@@ -1129,6 +1144,13 @@
                 if (Math.abs(g.x - nextX) > checkDist || Math.abs(g.y - nextY) > checkDist) continue;
                 if(rectDist(nextX, nextY, g.x, g.y, g.w, g.h) < carRadius) return {hit: true, type: 'solid'};
             }
+            
+            /* Zäune sollen durchfahrbar sein - auskommentiert
+            for(let f of mapData.fences) {
+                if (Math.abs(f.x - nextX) > checkDist || Math.abs(f.y - nextY) > checkDist) continue;
+                if(rectDist(nextX, nextY, f.x, f.y, f.w, f.h) < carRadius) return {hit: true, type: 'solid'};
+            }
+            */
 
             for(let p of mapData.packstations) {
                 if (Math.abs(p.cx - nextX) > checkDist || Math.abs(p.cy - nextY) > checkDist) continue;
@@ -1358,7 +1380,7 @@
                 if (c.state === 'hit_ragdoll') {
                     c.x += c.vx; c.y += c.vy; c.vx *= 0.95; c.vy *= 0.95; c.timer--;
                     if (c.timer <= 0) { 
-                        if (Math.hypot(c.x - car.x, c.y - car.y) > 1500) {
+                        if (Math.hypot(c.x - car.x, c.y - car.y) > 800) {
                             competitors[i] = spawnSingleAI(); 
                         } else {
                             c.timer = 30; 
@@ -1382,11 +1404,11 @@
 
                     for(let other of competitors) {
                         if(other.id === c.id) continue;
-                        if(Math.hypot(c.x - other.x, c.y - other.y) < 160) { 
+                        if(Math.hypot(c.x - other.x, c.y - other.y) < 180) { // Abstand vergrößert
                             let angleToOther = Math.atan2(other.y - c.y, other.x - c.x); 
                             let diffAngle = Math.abs(c.angle - angleToOther); 
                             if (diffAngle > Math.PI) diffAngle = 2*Math.PI - diffAngle;
-                            if (diffAngle < Math.PI/4) { isBlocked = true; break; }
+                            if (diffAngle < Math.PI/3) { isBlocked = true; break; } // Sichtkegel verbreitert
                         }
                     }
 
@@ -1406,14 +1428,8 @@
                     } else {
                         c.x = nextX; c.y = nextY;
                         
-                        if(Math.abs(c.x) > 2080 || Math.abs(c.y) > 2080) {
-                            if (Math.hypot(c.x - car.x, c.y - car.y) > 1500) {
-                                competitors[i] = spawnSingleAI();
-                                continue;
-                            } else {
-                                c.speed = 0;
-                            }
-                        }
+                        if(Math.abs(c.x) > 2080) { c.dirX *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
+                        if(Math.abs(c.y) > 2080) { c.dirY *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
                         
                         if(Math.random() < 0.0005) { 
                             let drift = 15 + Math.random()*20; 
@@ -1427,7 +1443,7 @@
                             if (!testCol.hit || testCol.type !== 'solid') { 
                                 c.x = newX; c.y = newY; 
                                 c.state = 'stopped_reckless'; c.timer = 500 + Math.random()*1500; 
-                                c.speed = 0; 
+                                c.speed = 0; c.angle = c.angle + (Math.random() - 0.5) * Math.PI * 0.6; 
                             }
                         } else if(Math.random() < 0.001) { 
                             c.state = 'stopped'; c.timer = 150 + Math.random()*200; c.speed = 0; 
@@ -1441,10 +1457,12 @@
                 } else if(c.state === 'traffic_jam') {
                     c.timer--;
                     if(c.timer <= 0) { 
-                        if (Math.hypot(c.x - car.x, c.y - car.y) > 1500) {
+                        if (Math.hypot(c.x - car.x, c.y - car.y) > 800) {
                             competitors[i] = spawnSingleAI(); 
                         } else {
-                            c.timer = 60; // Keep waiting if visible, don't flip instantly
+                            c.dirX *= -1; c.dirY *= -1; 
+                            c.angle += Math.PI; c.baseAngle = c.angle; 
+                            c.state = 'driving'; c.speed = c.baseSpeed;
                         }
                     } else {
                         let isBlocked = false;
@@ -1508,7 +1526,7 @@
                             let angle = Math.atan2(pTargetY - attacker.y, pTargetX - attacker.x); 
                             projectiles.push({ x: attacker.x, y: attacker.y, z: 10, vx: Math.cos(angle)*4, vy: Math.sin(angle)*4, vz: 2, life: 40 }); 
                         } 
-                        attacker.state = 'after_throw'; attacker.pose = 'after_throw'; attacker.timer = 100; 
+                        attacker.state = 'after_throw'; attacker.pose = 'after_throw'; attacker.timer = 50; 
                     } 
                 } else if(attacker.state === 'after_throw') { 
                     attacker.lastAngle = Math.atan2(pTargetY - attacker.y, pTargetX - attacker.x); 
