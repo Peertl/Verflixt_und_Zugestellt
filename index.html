@@ -620,7 +620,7 @@
             let dir, dirX = 0, dirY = 0;
             let attempts = 0;
             
-            while(!validSpawn && attempts < 100) {
+            while(!validSpawn && attempts < 500) {
                 let startPos = (Math.random() * 4000) - 2000; 
                 dir = Math.random() > 0.5 ? 1 : -1;
                 
@@ -636,12 +636,12 @@
                 
                 let distToPlayer = Math.hypot(aiX - car.x, aiY - car.y);
                 
-                // Bubble-System: Spawne nicht im direkten Sichtfeld (<800) und nicht zu weit weg (>2200)
-                if (distToPlayer < 800 || distToPlayer > 2200) {
+                // Bubble-System: Größerer Radius für weitreichendere Verteilung
+                if (distToPlayer < 1000 || distToPlayer > 2800) {
                     validSpawn = false;
                 }
                 
-                // Zu nah an anderen KI-Autos? (Verhindert exaktes Ineinander-Spawnen)
+                // Zu nah an anderen KI-Autos? 
                 if (validSpawn) {
                     for (let c of competitors) {
                         if (c && Math.hypot(aiX - c.x, aiY - c.y) < 400) {
@@ -1382,7 +1382,7 @@
                 let dToPlayer = Math.hypot(c.x - pTargetX, c.y - pTargetY);
 
                 // GANZ WICHTIG: KI despawnen, wenn sie zu weit weg ist (Bubble-System)
-                if (dToPlayer > 2500 && c.state !== 'hit_ragdoll') {
+                if (dToPlayer > 3000 && c.state !== 'hit_ragdoll') {
                     competitors[i] = spawnSingleAI();
                     continue;
                 }
@@ -1412,7 +1412,7 @@
                     let blockedByPlayer = false;
                     let carAhead = null;
 
-                    // --- NEU: ABSTAND UND SCHLANGE BILDEN ---
+                    // --- ABSTAND UND SCHLANGE BILDEN ---
                     for(let other of competitors) {
                         if(other.id === c.id || other.state === 'hit_ragdoll') continue;
                         let dist = Math.hypot(c.x - other.x, c.y - other.y);
@@ -1455,14 +1455,17 @@
                         if (blockedByPlayer) { 
                             c.state = ' Prepare_Attack'; c.timer = 5; c.speed = 0; 
                         } else { 
-                            // Deutlich mehr Geduld beim Warten!
-                            c.state = 'traffic_jam'; c.timer = 200 + Math.random()*100; c.speed = 0; 
+                            // Geduld beim Warten
+                            c.state = 'traffic_jam'; c.timer = 120 + Math.random()*60; c.speed = 0; 
                         }
                     } else {
                         c.x = nextX; c.y = nextY;
                         
-                        if(Math.abs(c.x) > 2080) { c.x = Math.sign(c.x)*2080; c.dirX *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
-                        if(Math.abs(c.y) > 2080) { c.y = Math.sign(c.y)*2080; c.dirY *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
+                        // Karte Ränder: Despawnen statt als Geisterfahrer umkehren!
+                        if(Math.abs(c.x) > 2080 || Math.abs(c.y) > 2080) { 
+                            competitors[i] = spawnSingleAI();
+                            continue;
+                        }
                         
                         if(Math.random() < 0.0005) { 
                             let drift = 15 + Math.random()*20; 
@@ -1490,12 +1493,17 @@
                 } else if(c.state === 'traffic_jam') {
                     c.timer--;
                     if(c.timer <= 0) { 
-                        if (Math.hypot(c.x - car.x, c.y - car.y) > 1200) {
+                        if (Math.hypot(c.x - car.x, c.y - car.y) > 1000) {
                             competitors[i] = spawnSingleAI(); 
                         } else {
-                            // Wenn die extrem hohe Geduld am Ende ist, wird gewendet
+                            // Wenden und auf die richtige Spur wechseln!
                             c.dirX *= -1; c.dirY *= -1; 
                             c.angle += Math.PI; c.baseAngle = c.angle; 
+                            if (c.dirX !== 0) {
+                                c.y += c.dirX > 0 ? 80 : -80;
+                            } else {
+                                c.x += c.dirY > 0 ? -80 : 80;
+                            }
                             c.state = 'driving'; c.speed = c.baseSpeed;
                         }
                     } else {
