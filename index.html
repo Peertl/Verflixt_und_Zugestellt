@@ -634,8 +634,10 @@
                 
                 validSpawn = true;
                 
-                // Zu nah am Spieler?
-                if (Math.hypot(aiX - car.x, aiY - car.y) < 800) {
+                let distToPlayer = Math.hypot(aiX - car.x, aiY - car.y);
+                
+                // Bubble-System: Spawne nicht im direkten Sichtfeld (<800) und nicht zu weit weg (>2200)
+                if (distToPlayer < 800 || distToPlayer > 2200) {
                     validSpawn = false;
                 }
                 
@@ -1377,6 +1379,14 @@
             for(let i = 0; i < competitors.length; i++) {
                 let c = competitors[i];
                 
+                let dToPlayer = Math.hypot(c.x - pTargetX, c.y - pTargetY);
+
+                // GANZ WICHTIG: KI despawnen, wenn sie zu weit weg ist (Bubble-System)
+                if (dToPlayer > 2500 && c.state !== 'hit_ragdoll') {
+                    competitors[i] = spawnSingleAI();
+                    continue;
+                }
+                
                 if (c.state === 'hit_ragdoll') {
                     c.x += c.vx; c.y += c.vy; c.vx *= 0.95; c.vy *= 0.95; c.timer--;
                     if (c.timer <= 0) { 
@@ -1389,7 +1399,6 @@
                     continue;
                 }
 
-                let dToPlayer = Math.hypot(c.x - pTargetX, c.y - pTargetY);
                 if(dToPlayer < 200 && Math.random() < 0.02 && c.state === 'driving') { 
                     c.state = ' Prepare_Attack'; 
                     c.timer = 5; 
@@ -1428,8 +1437,8 @@
                     } else {
                         c.x = nextX; c.y = nextY;
                         
-                        if(Math.abs(c.x) > 2080) { c.dirX *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
-                        if(Math.abs(c.y) > 2080) { c.dirY *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
+                        if(Math.abs(c.x) > 2080) { c.x = Math.sign(c.x)*2080; c.dirX *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
+                        if(Math.abs(c.y) > 2080) { c.y = Math.sign(c.y)*2080; c.dirY *= -1; c.angle += Math.PI; c.baseAngle = c.angle; }
                         
                         if(Math.random() < 0.0005) { 
                             let drift = 15 + Math.random()*20; 
