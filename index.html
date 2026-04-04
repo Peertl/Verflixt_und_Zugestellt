@@ -1146,13 +1146,6 @@
                 if (Math.abs(g.x - nextX) > checkDist || Math.abs(g.y - nextY) > checkDist) continue;
                 if(rectDist(nextX, nextY, g.x, g.y, g.w, g.h) < carRadius) return {hit: true, type: 'solid'};
             }
-            
-            /* Zäune sollen durchfahrbar sein - auskommentiert
-            for(let f of mapData.fences) {
-                if (Math.abs(f.x - nextX) > checkDist || Math.abs(f.y - nextY) > checkDist) continue;
-                if(rectDist(nextX, nextY, f.x, f.y, f.w, f.h) < carRadius) return {hit: true, type: 'solid'};
-            }
-            */
 
             for(let p of mapData.packstations) {
                 if (Math.abs(p.cx - nextX) > checkDist || Math.abs(p.cy - nextY) > checkDist) continue;
@@ -1170,15 +1163,16 @@
             for(let c of competitors) { 
                 if (Math.abs(c.x - nextX) > 150 || Math.abs(c.y - nextY) > 150) continue;
                 if(Math.hypot(nextX - c.x, nextY - c.y) < (carRadius + c.w/2 + 5)) {
-                    if (car.type === 'bike' && gameState.superHeroTimer <= 0) return {hit: true, type: 'solid'};
+                    // WICHTIG: ai_bike zurückgeben, damit wir wissen wie das Fahrrad reagieren soll
+                    if (car.type === 'bike' && gameState.superHeroTimer <= 0) return {hit: true, type: 'ai_bike', ai: c};
                     else return {hit: true, type: 'ai', ai: c}; 
                 }
             }
 
             if (attacker.state !== 'idle' && !attacker.state.startsWith('hit_ragdoll')) {
                 if(Math.hypot(nextX - attacker.x, nextY - attacker.y) < (carRadius + 10)) {
-                    if (car.type === 'bike' && gameState.superHeroTimer <= 0) return {hit: true, type: 'bike_attacker'};
-                    else return {hit: true, type: 'attacker'};
+                    if (car.type === 'bike' && gameState.superHeroTimer <= 0) return {hit: true, type: 'bike_attacker', attacker: attacker};
+                    else return {hit: true, type: 'attacker', attacker: attacker};
                 }
             }
             return {hit: false};
@@ -1866,6 +1860,14 @@
                             gameState.penaltyActive = true; 
                             showFloatingText("- Karma", car.x, car.y - 40, true); sfx.bad(); 
                         }
+                    } else if (col.type === 'ai_bike') {
+                        // LÖSUNG FÜR DEN STUCK-BUG (Fahrrad vs KI)
+                        // Anstatt an der KI kleben zu bleiben, stoßen wir das Fahrrad radial von der KI weg
+                        car.speed *= -0.5; 
+                        let pushAngle = Math.atan2(car.y - col.ai.y, car.x - col.ai.x);
+                        car.x += Math.cos(pushAngle) * 10;
+                        car.y += Math.sin(pushAngle) * 10;
+                        car.vx = 0; car.vy = 0;
                     } else if (col.type === 'ai') {
                         if (isSuperHero) {
                             col.ai.state = 'hit_ragdoll'; 
@@ -1914,16 +1916,19 @@
                             showFloatingText("BÄM!", attacker.x, attacker.y - 40); 
                             car.x = nextX; car.y = nextY;
                         } else {
-                            car.speed *= 0.2; 
-                            let canMoveX = !checkCollision(nextX, car.y).hit, canMoveY = !checkCollision(car.x, nextY).hit; 
-                            if (canMoveX) car.x = nextX; if (canMoveY) car.y = nextY; 
-                            if(!canMoveX && !canMoveY) { car.x -= car.vx; car.y -= car.vy; car.speed = 0; car.vx = 0; car.vy = 0; } 
-                            if (car.type !== 'bike' && col.type === 'attacker') {
+                            if (col.type === 'bike_attacker') {
+                                car.speed *= -0.5; 
+                                let pushAngle = Math.atan2(car.y - col.attacker.y, car.x - col.attacker.x);
+                                car.x += Math.cos(pushAngle) * 10;
+                                car.y += Math.sin(pushAngle) * 10;
+                                car.vx = 0; car.vy = 0;
+                            } else {
+                                car.speed *= 0.2; 
+                                let canMoveX = !checkCollision(nextX, car.y).hit, canMoveY = !checkCollision(car.x, nextY).hit; 
+                                if (canMoveX) car.x = nextX; if (canMoveY) car.y = nextY; 
+                                if(!canMoveX && !canMoveY) { car.x -= car.vx; car.y -= car.vy; car.speed = 0; car.vx = 0; car.vy = 0; } 
                                 attacker.state = 'hit_ragdoll'; attacker.vx = Math.cos(car.angle) * 6; attacker.vy = Math.sin(car.angle) * 6; attacker.timer = 60; 
                                 gameState.penaltyActive = true; showFloatingText("- Karma", car.x, car.y - 40, true); sfx.bad();
-                            } else if (col.type === 'bike_attacker') { 
-                                attacker.x += Math.cos(car.angle) * 3; attacker.y += Math.sin(car.angle) * 3; 
-                                car.x -= car.vx * 0.5; car.y -= car.vy * 0.5; 
                             }
                         }
                     } else {
@@ -1937,9 +1942,20 @@
                 }
 
                 // Anti-Stuck Safeguard (falls man durch schnelle Rotation in ein Objekt glitched)
-                if (checkCollision(car.x, car.y).hit) {
-                    car.x = car.lastSafeX;
-                    car.y = car.lastSafeY;
+                let currentOverlap = checkCollision(car.x, car.y);
+                if (currentOverlap.hit) {
+                    if (currentOverlap.type === 'ai' || currentOverlap.type === 'ai_bike') {
+                        let pushAngle = Math.atan2(car.y - currentOverlap.ai.y, car.x - currentOverlap.ai.x);
+                        car.x += Math.cos(pushAngle) * 6;
+                        car.y += Math.sin(pushAngle) * 6;
+                    } else if (currentOverlap.type === 'attacker' || currentOverlap.type === 'bike_attacker') {
+                        let pushAngle = Math.atan2(car.y - currentOverlap.attacker.y, car.x - currentOverlap.attacker.x);
+                        car.x += Math.cos(pushAngle) * 6;
+                        car.y += Math.sin(pushAngle) * 6;
+                    } else {
+                        car.x = car.lastSafeX;
+                        car.y = car.lastSafeY;
+                    }
                     car.speed *= -0.5; // Leichter Bounce-Back
                     car.vx = 0;
                     car.vy = 0;
