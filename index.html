@@ -897,7 +897,12 @@
 
         function spawnMission() {
             if (gameState.packstationBuff && car.type !== 'bike') {
-                let b = mapData.packstations[Math.floor(Math.random() * mapData.packstations.length)];
+                // Filter out the last visited packstation to avoid repeating
+                let availablePackstations = mapData.packstations.filter(p => p.id !== gameState.lastMissionBId);
+                // Fallback just in case
+                if (availablePackstations.length === 0) availablePackstations = mapData.packstations;
+                
+                let b = availablePackstations[Math.floor(Math.random() * availablePackstations.length)];
                 let type = { name: 'Packstation', waitTime: 360, color: '#ffcc00', icon: '📦', img: iconPackstationMarker }; 
                 gameState.mission = { bId: b.id, doorX: b.haloX, doorY: b.haloY, triggerX: b.haloX, triggerY: b.haloY, radius: 45, type: type, pulse: 0, isPackstation: true };
                 document.getElementById('missionInfo').innerText = `Ziel: Packstation`;
