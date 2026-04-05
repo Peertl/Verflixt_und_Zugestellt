@@ -203,18 +203,18 @@
     <div id="tutorialScreen" class="overlay-screen" style="display: none; justify-content: flex-start; padding: 40px 20px; box-sizing: border-box; overflow-y: auto; z-index: 101;">
         <h1 style="color: #ffcc00; margin-bottom: 15px; margin-top: 0;">Spielanleitung</h1>
         <div class="tutorial-box">
-            <p style="margin-top:0;"><img src="Paket-Icon.png" style="width:24px; vertical-align:middle; margin-right:8px;"><b>Zustellung:</b> Fahre zu den <span style="color:#4caf50; font-weight:bold;">grünen</span> Markierungen. Bei Paketen musst du unterschreiben lassen.</p>
-            <p><img src="Konkurrent_DPD_throwing.png" style="width:24px; vertical-align:middle; margin-right:8px;"><b>Konkurrenz:</b> Andere Lieferdienste bewerfen dich mit Paketen, wenn du sie rammst.</p>
-            <p><img src="Laterne_stehend.png" style="width:16px; vertical-align:middle; margin-right:12px;"><b>Hindernisse:</b> Fahre nicht über den Rasen. Laternen oder Konkurrenten umfahren gibt in roter Schrift <b>- Karma</b>.</p>
-            <p><img src="Benachrichtigung.png" style="width:40px; vertical-align:middle; margin-right:8px;"><b>Strafe (Nachbar):</b> Bei schlechtem Karma triffst du den Kunden nicht an. Du musst zum Nachbarn laufen!</p>
-            <p><span style="color:#9c27b0; font-weight:bold; font-size:20px; vertical-align:middle; margin-right:8px;">O</span><b>Violette Ereignisfelder (Boni):</b>
+            <p style="margin-top:0;"><img src="Paket-Icon.png" style="width:24px; vertical-align:middle; margin-right:8px;"><b>Zustellung:</b> Fahre zu den <span style="color:#4caf50; font-weight:bold;">grünen</span> Markierungen und stelle Sendungen zu.</p>
+            <p><img src="Konkurrent_DPD_throwing.png" style="width:24px; vertical-align:middle; margin-right:8px;"><b>Konkurrenz:</b> Andere Lieferdienste stehen im Weg und bewerfen dich mit Paketen.</p>
+            <p><img src="Laterne_stehend.png" style="width:16px; vertical-align:middle; margin-right:12px;"><b>Hindernisse:</b> Laternen oder Konkurrenten umzufahren gibt <b>schlechtes Karma</b>.</p>
+            <p><img src="Benachrichtigung.png" style="width:40px; vertical-align:middle; margin-right:8px;"><b>Strafe:</b> Bei schlechtem Karma triffst du den Kunden nicht an. Du musst die Sendung beim Nachbarn abgeben.</p>
+            <p><span style="color:#9c27b0; font-weight:bold; font-size:20px; vertical-align:middle; margin-right:8px;">O</span><b>Violette Ereignisfelder:</b>
                 <ul style="margin-top:5px; padding-left:20px;">
                     <li><b>+ 15 Sekunden:</b> Gewinne Zeit</li>
-                    <li><b>Packstation:</b> Werde 3 Pakete auf einmal los</li>
-                    <li><b>Ablageort:</b> Zustellung ohne Wartezeit</li>
+                    <li><b>Packstation:</b> Werde 3 Päckchen auf einmal los</li>
+                    <li><b>Ablageort:</b> Direkte Zustellung (auch trotz Strafe)</li>
                 </ul>
             </p>
-            <p><span style="color:#FFD700; font-weight:bold; font-size:20px; vertical-align:middle; margin-right:8px;">★</span><b>Super-Hero (Goldener Stern):</b> Erscheint nach 1,5 Minuten! Macht dich für 40s rasend schnell und immun gegen Gegner und Strafen.</p>
+            <p><span style="color:#FFD700; font-weight:bold; font-size:20px; vertical-align:middle; margin-right:8px;">★</span><b>Held in gelb:</b> Der goldene Stern macht dich für 40s rasend schnell und immun gegen Gegner und Strafen.</p>
         </div>
         <button class="action-btn" onclick="document.getElementById('tutorialScreen').style.display='none'">Zurück zum Menü</button>
     </div>
@@ -241,10 +241,11 @@
             <div id="bonusContainer">
                 <div class="bonus-slot" id="slotAblageort" title="Ablageort Bonus">
                     <img src="Päckchen-Icon.png" alt="Ablageort">
+                    <span class="bonus-badge" id="badgeAblageort">x1</span>
                 </div>
                 <div class="bonus-slot" id="slotPackstation" title="Packstation Bonus">
                     <img src="Packstation-Icon.png" alt="Packstation">
-                    <span class="bonus-badge">x3</span>
+                    <span class="bonus-badge" id="badgePackstation">x1</span>
                 </div>
             </div>
         </div>
@@ -867,8 +868,8 @@
         const gameState = { 
             score: 0, isDelivering: false, brakingForMission: false, 
             mission: null, lastMissionBId: null, floatingTexts: [], 
-            cooldown: 0, penaltyActive: false, packstationBuff: false, 
-            ablageortBuff: false, gameTime: 0, superHeroTimer: 0, starSpawned: false 
+            cooldown: 0, penaltyActive: false, packstationBuffCount: 0, 
+            ablageortBuffCount: 0, gameTime: 0, superHeroTimer: 0, starSpawned: false 
         };
         
         const MISSION_TYPES = [ 
@@ -891,12 +892,27 @@
         };
 
         function updateBonusUI() {
-            document.getElementById('slotPackstation').className = gameState.packstationBuff ? 'bonus-slot active' : 'bonus-slot';
-            document.getElementById('slotAblageort').className = gameState.ablageortBuff ? 'bonus-slot active' : 'bonus-slot';
+            let psSlot = document.getElementById('slotPackstation');
+            let psBadge = document.getElementById('badgePackstation');
+            if (gameState.packstationBuffCount > 0) {
+                psSlot.className = 'bonus-slot active';
+                psBadge.innerText = 'x' + gameState.packstationBuffCount;
+            } else {
+                psSlot.className = 'bonus-slot';
+            }
+
+            let aoSlot = document.getElementById('slotAblageort');
+            let aoBadge = document.getElementById('badgeAblageort');
+            if (gameState.ablageortBuffCount > 0) {
+                aoSlot.className = 'bonus-slot active';
+                aoBadge.innerText = 'x' + gameState.ablageortBuffCount;
+            } else {
+                aoSlot.className = 'bonus-slot';
+            }
         }
 
         function spawnMission() {
-            if (gameState.packstationBuff && car.type !== 'bike') {
+            if (gameState.packstationBuffCount > 0 && car.type !== 'bike') {
                 // Filter out the last visited packstation to avoid repeating
                 let availablePackstations = mapData.packstations.filter(p => p.id !== gameState.lastMissionBId);
                 // Fallback just in case
@@ -906,8 +922,10 @@
                 let type = { name: 'Packstation', waitTime: 360, color: '#ffcc00', icon: '📦', img: iconPackstationMarker }; 
                 gameState.mission = { bId: b.id, doorX: b.haloX, doorY: b.haloY, triggerX: b.haloX, triggerY: b.haloY, radius: 45, type: type, pulse: 0, isPackstation: true };
                 document.getElementById('missionInfo').innerText = `Ziel: Packstation`;
-                gameState.packstationBuff = false;
+                
+                gameState.packstationBuffCount--;
                 updateBonusUI();
+                
                 gameState.cooldown = 60;
                 return;
             }
@@ -954,7 +972,7 @@
             
             gameState.score = 0; gameState.isDelivering = false; gameState.brakingForMission = false; 
             gameState.cooldown = 0; gameState.mission = null; gameState.lastMissionBId = null; 
-            gameState.penaltyActive = false; gameState.packstationBuff = false; gameState.ablageortBuff = false;
+            gameState.penaltyActive = false; gameState.packstationBuffCount = 0; gameState.ablageortBuffCount = 0;
             gameState.gameTime = 0; gameState.superHeroTimer = 0; gameState.starSpawned = false;
 
             postman.state = 'idle'; postman.slowTimer = 0; 
@@ -1360,12 +1378,12 @@
                         showFloatingText("+ 15 Sekunden", car.x, car.y - 40); 
                     } 
                     else if (ev.type === 'packstation') { 
-                        gameState.packstationBuff = true; updateBonusUI(); 
-                        showFloatingText("Packstation", car.x, car.y - 40); 
+                        gameState.packstationBuffCount++; updateBonusUI(); 
+                        showFloatingText("Packstation Bonus", car.x, car.y - 40); 
                     }
                     else if (ev.type === 'ablageort') { 
-                        gameState.ablageortBuff = true; updateBonusUI(); 
-                        showFloatingText("Ablageort", car.x, car.y - 40); 
+                        gameState.ablageortBuffCount++; updateBonusUI(); 
+                        showFloatingText("Ablageort Bonus", car.x, car.y - 40); 
                     }
                 }
             }
@@ -1731,8 +1749,8 @@
                             postman.state = 'waiting_packstation_parcel'; 
                             postman.packstation_parcel_count = 0; 
                             postman.packstation_parcel_timer = 120; 
-                        } else if (gameState.ablageortBuff && (postman.type.name === 'Paket' || postman.type.name === 'Päckchen')) { 
-                            gameState.ablageortBuff = false; gameState.penaltyActive = false; 
+                        } else if (gameState.ablageortBuffCount > 0 && (postman.type.name === 'Paket' || postman.type.name === 'Päckchen')) { 
+                            gameState.ablageortBuffCount--; gameState.penaltyActive = false; 
                             updateBonusUI(); successDelivery(); 
                         } else { 
                             postman.state = 'waiting'; 
