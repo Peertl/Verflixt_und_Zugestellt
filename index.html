@@ -2029,11 +2029,7 @@
             if(!gameActive) return;
             
             ctx.save(); 
-            
-            let zoom = deviceType === 'PC' ? 1.8 : 1; 
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-car.x, -car.y);
+            ctx.translate(canvas.width / 2 - car.x, canvas.height / 2 - car.y);
 
             ctx.fillStyle = grassPattern ? grassPattern : '#4caf50';
             ctx.fillRect(-6000, -6000, 12000, 12000); 
@@ -2306,8 +2302,8 @@
             ctx.restore(); 
 
             if (gameState.mission && !gameState.brakingForMission && !gameState.isDelivering) { 
-                let sX = canvas.width/2 + (gameState.mission.triggerX - car.x) * zoom; 
-                let sY = canvas.height/2 + (gameState.mission.triggerY - car.y) * zoom; 
+                let sX = canvas.width/2 + (gameState.mission.triggerX - car.x); 
+                let sY = canvas.height/2 + (gameState.mission.triggerY - car.y); 
                 if (sX < 40 || sX > canvas.width - 40 || sY < 40 || sY > canvas.height - 40) { 
                     let a = Math.atan2(gameState.mission.triggerY - car.y, gameState.mission.triggerX - car.x); 
                     let r = Math.min(canvas.width, canvas.height) / 2 - 60; 
@@ -2335,8 +2331,8 @@
             
             for (let ev of mapData.events) {
                 if (ev.active) {
-                    let sX = canvas.width/2 + (ev.x - car.x) * zoom; 
-                    let sY = canvas.height/2 + (ev.y - car.y) * zoom; 
+                    let sX = canvas.width/2 + (ev.x - car.x); 
+                    let sY = canvas.height/2 + (ev.y - car.y); 
                     if (sX < 40 || sX > canvas.width - 40 || sY < 40 || sY > canvas.height - 40) { 
                         let isStar = (ev.type === 'star'); 
                         let a = Math.atan2(ev.y - car.y, ev.x - car.x); 
@@ -2367,13 +2363,30 @@
             }
         }
         
-        function loop() { 
-            update(); 
+        let lastTime = 0;
+        let accumulator = 0;
+        const timeStep = 1000 / 120; // Simuliert 120Hz für identische Spielgeschwindigkeit
+
+        function loop(timestamp) { 
+            if (!lastTime) lastTime = timestamp;
+            let deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Verhindert massives Ruckeln beim Tab-Wechsel
+            if (deltaTime > 100) deltaTime = 100;
+
+            accumulator += deltaTime;
+
+            while (accumulator >= timeStep) {
+                update();
+                accumulator -= timeStep;
+            }
+
             draw(); 
             requestAnimationFrame(loop); 
         } 
         
-        loop();
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
