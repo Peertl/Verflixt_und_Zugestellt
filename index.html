@@ -2029,7 +2029,12 @@
             if(!gameActive) return;
             
             ctx.save(); 
-            ctx.translate(canvas.width / 2 - car.x, canvas.height / 2 - car.y);
+            
+            // --- NEU: Zoom-Logik wieder eingebaut ---
+            let zoom = deviceType === 'PC' ? 1.8 : 1; 
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-car.x, -car.y);
 
             ctx.fillStyle = grassPattern ? grassPattern : '#4caf50';
             ctx.fillRect(-6000, -6000, 12000, 12000); 
@@ -2301,9 +2306,10 @@
             
             ctx.restore(); 
 
+            // --- Wegweiser (UI an den Rändern) müssen den Zoom wieder berücksichtigen ---
             if (gameState.mission && !gameState.brakingForMission && !gameState.isDelivering) { 
-                let sX = canvas.width/2 + (gameState.mission.triggerX - car.x); 
-                let sY = canvas.height/2 + (gameState.mission.triggerY - car.y); 
+                let sX = canvas.width/2 + (gameState.mission.triggerX - car.x) * zoom; 
+                let sY = canvas.height/2 + (gameState.mission.triggerY - car.y) * zoom; 
                 if (sX < 40 || sX > canvas.width - 40 || sY < 40 || sY > canvas.height - 40) { 
                     let a = Math.atan2(gameState.mission.triggerY - car.y, gameState.mission.triggerX - car.x); 
                     let r = Math.min(canvas.width, canvas.height) / 2 - 60; 
@@ -2331,8 +2337,8 @@
             
             for (let ev of mapData.events) {
                 if (ev.active) {
-                    let sX = canvas.width/2 + (ev.x - car.x); 
-                    let sY = canvas.height/2 + (ev.y - car.y); 
+                    let sX = canvas.width/2 + (ev.x - car.x) * zoom; 
+                    let sY = canvas.height/2 + (ev.y - car.y) * zoom; 
                     if (sX < 40 || sX > canvas.width - 40 || sY < 40 || sY > canvas.height - 40) { 
                         let isStar = (ev.type === 'star'); 
                         let a = Math.atan2(ev.y - car.y, ev.x - car.x); 
