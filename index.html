@@ -1016,55 +1016,77 @@
             renderLeaderboard();
         }
 
-        const API_URL = "https://verflixt-und-zugestellt-default-rtdb.europe-west1.firebasedatabase.app/leaderboard.json"; 
+        // --- SICHERE LOKALE BESTENLISTE ---
+        
+        // Hilfsfunktion gegen XSS (Cross-Site Scripting)
+        // Wandelt gefährliche HTML-Zeichen (wie <, >, &) in sichere Text-Entitäten um
+        function sanitizeHTML(str) {
+            let temp = document.createElement('div');
+            temp.textContent = str;
+            return temp.innerHTML;
+        }
 
-        async function saveScore() {
+        function saveScore() {
             let nameInput = document.getElementById('playerName'); 
-            let name = nameInput.value.trim() || "Anonymer Bote"; 
+            let rawName = nameInput.value.trim() || "Anonymer Bote"; 
+            
+            // 1. Sicherheitsschicht: Eingabe bereinigen
+            let safeName = sanitizeHTML(rawName);
             
             let entryDate = new Date(); 
             let dateStr = entryDate.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit', year: 'numeric'}) + ', ' + entryDate.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
             
-            let newEntry = { name: name, score: gameState.score, vehicle: car.name, device: deviceType, date: dateStr };
+            // Sicherstellen, dass der Score eine absolute Zahl ist
+            let safeScore = parseInt(gameState.score, 10) || 0;
 
+            let newEntry = { name: safeName, score: safeScore, vehicle: car.name, device: deviceType, date: dateStr };
+
+            // Bisherige Liste laden
+            let lb = [];
             try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newEntry)
-                });
+                lb = JSON.parse(localStorage.getItem('dhl_leaderboard') || "[]");
+                if (!Array.isArray(lb)) lb = [];
             } catch (e) {
-                console.error("Fehler beim Speichern in Firebase:", e);
-                let lb = JSON.parse(localStorage.getItem('dhl_leaderboard') || "[]");
-                lb.push(newEntry);
-                localStorage.setItem('dhl_leaderboard', JSON.stringify(lb));
+                lb = []; // Fallback, falls der Storage manipuliert wurde
             }
+
+            // Neuen Eintrag hinzufügen und sortieren
+            lb.push(newEntry);
+            lb.sort((a,b) => b.score - a.score); 
+
+            // 2. Sicherheitsschicht: Liste begrenzen (verhindert Local Storage Überlauf)
+            if (lb.length > 50) {
+                lb = lb.slice(0, 50);
+            }
+
+            // Sicher im Browser speichern
+            localStorage.setItem('dhl_leaderboard', JSON.stringify(lb));
 
             document.getElementById('playerNameArea').style.display = 'none';
             renderLeaderboard();
         }
 
-        async function renderLeaderboard() {
+        function renderLeaderboard() {
             let listHTML = "";
             let lb = [];
-
+            
             try {
-                let response = await fetch(API_URL);
-                if (response.ok) {
-                    let data = await response.json();
-                    if (data) {
-                        lb = Object.values(data);
-                    }
-                }
-            } catch (e) {
-                console.warn("Konnte Bestenliste nicht laden, versuche lokal:", e);
                 lb = JSON.parse(localStorage.getItem('dhl_leaderboard') || "[]");
+                if (!Array.isArray(lb)) lb = [];
+            } catch (e) {
+                lb = [];
             }
 
             lb.sort((a,b) => b.score - a.score); 
 
             for(let i=0; i < Math.min(lb.length, 5); i++) { 
-                listHTML += `<li><strong>${lb[i].score} Sendungen</strong> - ${lb[i].name} <br><span style="font-size:0.8em; color:#ccc;">${lb[i].date} | ${lb[i].vehicle}</span></li>`; 
+                // 3. Sicherheitsschicht: Daten auch bei der Ausgabe nochmals validieren
+                let displayScore = parseInt(lb[i].score, 10) || 0;
+                let displayName = sanitizeHTML(lb[i].name || "Unbekannt");
+                let displayDate = sanitizeHTML(String(lb[i].date || ""));
+                let displayVehicle = sanitizeHTML(String(lb[i].vehicle || ""));
+
+                listHTML += `<li><strong>${displayScore} Sendungen</strong> - ${displayName} <br><span style="font-size:0.8em; color:#ccc;">${displayDate} | ${displayVehicle}</span></li>`; 
             }
             document.getElementById('leaderboardList').innerHTML = listHTML;
         }
