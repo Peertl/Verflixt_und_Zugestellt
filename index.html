@@ -1258,18 +1258,20 @@
             deviceType = 'PC'; 
             if(gameActive) { document.getElementById('touchControllerCanvas').style.display = 'none'; } 
             if(!gameState.brakingForMission && !gameState.isDelivering && gameActive) { 
-                if(e.key === 'ArrowUp') inputs.fwd = true; 
-                if(e.key === 'ArrowDown') inputs.rev = true; 
-                if(e.key === 'ArrowLeft') inputs.left = true; 
-                if(e.key === 'ArrowRight') inputs.right = true; 
+                let key = e.key.toLowerCase();
+                if(e.key === 'ArrowUp' || key === 'w') inputs.fwd = true; 
+                if(e.key === 'ArrowDown' || key === 's') inputs.rev = true; 
+                if(e.key === 'ArrowLeft' || key === 'a') inputs.left = true; 
+                if(e.key === 'ArrowRight' || key === 'd') inputs.right = true; 
             } 
         });
         
         window.addEventListener('keyup', e => { 
-            if(e.key === 'ArrowUp') inputs.fwd = false; 
-            if(e.key === 'ArrowDown') inputs.rev = false; 
-            if(e.key === 'ArrowLeft') inputs.left = false; 
-            if(e.key === 'ArrowRight') inputs.right = false; 
+            let key = e.key.toLowerCase();
+            if(e.key === 'ArrowUp' || key === 'w') inputs.fwd = false; 
+            if(e.key === 'ArrowDown' || key === 's') inputs.rev = false; 
+            if(e.key === 'ArrowLeft' || key === 'a') inputs.left = false; 
+            if(e.key === 'ArrowRight' || key === 'd') inputs.right = false; 
         });
 
         function updateTouchControls() {
